@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Flip Card Game</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: system-ui, sans-serif;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+
+  header {
+    width: 100%;
+    max-width: 900px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .stat {
+    background: rgba(30, 41, 59, 0.8);
+    padding: 10px 16px;
+    border-radius: 12px;
+    border: 1px solid #334155;
+    font-weight: 600;
+  }
+  .stat span { color: #3b82f6; }
+
+  .btn {
+    padding: 10px 20px;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: 0.2s;
+  }
+  .btn:hover { background: #2563eb; transform: translateY(-2px); }
+  .btn.secondary { background: #475569; }
+  .btn.secondary:hover { background: #334155; }
+
+  .difficulty {
+    display: flex;
+    gap: 8px;
+  }
+  .diff-btn {
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    font-weight: 600;
+    transition: 0.2s;
+  }
+  .diff-green { background: #22c55e; }
+  .diff-blue { background: #3b82f6; }
+  .diff-red { background: #ef4444; }
+  .diff-btn.active { border-color: #fff; box-shadow: 0 0 12px currentColor; }
+
+  #game-board {
+    display: grid;
+    gap: 12px;
+    perspective: 1000px;
+    margin-bottom: 20px;
+  }
+
+  .card {
+    width: 100px;
+    height: 130px;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.6s;
+    cursor: pointer;
+  }
+  .card.flipped { transform: rotateY(180deg); }
+  .card.matched { transform: rotateY(180deg); pointer-events: none; opacity: 0.7; }
+
+  .card-face {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    border: 2px solid #334155;
+  }
+
+  .card-front {
+    background: linear-gradient(135deg, #1e293b, #334155);
+  }
+
+  .card-back {
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    transform: rotateY(180deg);
+    background-size: cover;
+    background-position: center;
+  }
+
+  /* Modal */
+  .modal {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .modal.active { display: flex; }
+
+  .modal-content {
+    background: #1e293b;
+    padding: 32px;
+    border-radius: 16px;
+    border: 1px solid #334155;
+    max-width: 500px;
+    width: 90%;
+    text-align: center;
+  }
+
+  .modal h2 { margin-bottom: 16px; }
+  .modal p { color: #94a3b8; margin-bottom: 20px; }
+
+  .shop-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+    margin: 20px 0;
+  }
+
+  .shop-item {
+    background: #0f172a;
+    border: 2px solid #334155;
+    border-radius: 12px;
+    padding: 12px;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+  .shop-item:hover { border-color: #3b82f6; }
+  .shop-item.owned { border-color: #22c55e; opacity: 0.6; }
+  .shop-item-preview {
+    width: 100%;
+    height: 80px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    background-size: cover;
+    background-position: center;
+  }
+
+  @media (max-width: 600px) {
+    .card { width: 75px; height: 100px; }
+    .card-face { font-size: 30px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex; gap:12px; flex-wrap:wrap;">
+    <div class="stat">Level: <span id="level">1</span></div>
+    <div class="stat">Coins: <span id="coins">0</span></div>
+    <div class="stat">Lives: <span id="lives">20</span></div>
+    <div class="stat">Pairs: <span id="pairs">0/0</span></div>
+  </div>
+  
+  <div class="difficulty">
+    <button class="diff-btn diff-green active" onclick="setDifficulty('green')">Green</button>
+    <button class="diff-btn diff-blue" onclick="setDifficulty('blue')">Blue</button>
+    <button class="diff-btn diff-red" onclick="setDifficulty('red')">Red</button>
+  </div>
+
+  <div>
+    <button class="btn secondary" onclick="openShop()">Shop</button>
+    <button class="btn" onclick="startLevel()">Restart</button>
+    <a href="index.html">
+    <button class="btn">Back Home</button>
+    </a>
+  </div>
+</header>
+
+<div id="game-board"></div>
+
+<!-- Win/Lose-->
+<div class="modal" id="gameModal">
+  <div class="modal-content">
+    <h2 id="modalTitle">Level Complete!</h2>
+    <p id="modalText">You earned 50 coins!</p>
+    <button class="btn" onclick="nextLevel()">Next Level</button>
+  </div>
+</div>
+
+<!-- Shop -->
+<div class="modal" id="shopModal">
+  <div class="modal-content">
+    <h2>Card Market</h2>
+    <p>Buy new backgrounds with coins. Current background applies next round.</p>
+    <div class="shop-grid" id="shopGrid"></div>
+    <button class="btn secondary" onclick="closeShop()">Close</button>
+  </div>
+</div><br>
+<script>
+let level = 1;
+let coins = 0;
+let difficulty = 'green';
+let lives = 20;
+let maxLives = 20;
+let cards = [];
+let flippedCards = [];
+let matchedPairs = 0;
+let totalPairs = 0;
+let canFlip = true;
+let currentBg = 'default';
+
+const backgrounds = [
+  { id: 'default', name: 'Default', price: 0, url: 'linear-gradient(135deg, #3b82f6, #8b5cf6)' },
+  { id: 'fire', name: 'Fire', price: 50, url: 'linear-gradient(135deg, #ef4444, #f97316)' },
+  { id: 'ocean', name: 'Ocean', price: 100, url: 'linear-gradient(135deg, #0ea5e9, #06b6d4)' },
+  { id: 'forest', name: 'Forest', price: 150, url: 'linear-gradient(135deg, #22c55e, #16a34a)' },
+  { id: 'galaxy', name: 'Galaxy', price: 250, url: 'linear-gradient(135deg, #8b5cf6, #ec4899)' },
+  { id: 'gold', name: 'Gold', price: 500, url: 'linear-gradient(135deg, #fbbf24, #f59e0b)' }
+];
+
+const ownedBgs = ['default'];
+const emojis = ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐸','🐵','🐔','🐧','🐦'];
+
+function setDifficulty(diff) {
+  difficulty = diff;
+  document.querySelectorAll('.diff-btn').forEach(btn => btn.classList.remove('active'));
+  event.target.classList.add('active');
+  
+  if (diff === 'green') maxLives = 20;
+  if (diff === 'blue') maxLives = 15;
+  if (diff === 'red') maxLives = 10;
+  
+  lives = maxLives;
+  updateUI();
+}
+
+function startLevel() {
+  flippedCards = [];
+  matchedPairs = 0;
+  canFlip = true;
+  
+  // Calculate pairs based on level
+  totalPairs = Math.min(4 + Math.floor(level / 2), 8);
+  
+  // Create card pairs
+  const cardValues = emojis.slice(0, totalPairs);
+  cards = [...cardValues, ...cardValues].sort(() => Math.random() - 0.5);
+  
+  // Random grid layout
+  const cols = totalPairs <= 6 ? 4 : 4;
+  document.getElementById('game-board').style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  
+  renderCards();
+  updateUI();
+}
+
+function renderCards() {
+  const board = document.getElementById('game-board');
+  board.innerHTML = '';
+  
+  cards.forEach((value, index) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.index = index;
+    card.dataset.value = value;
+    
+    const bg = backgrounds.find(b => b.id === currentBg);
+    
+    card.innerHTML = `
+      <div class="card-face card-front">?</div>
+      <div class="card-face card-back" style="background:${bg.url}">${value}</div>
+    `;
+    
+    card.addEventListener('click', () => flipCard(card));
+    board.appendChild(card);
+  });
+}
+
+function flipCard(card) {
+  if (!canFlip || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+  
+  card.classList.add('flipped');
+  flippedCards.push(card);
+  
+  if (flippedCards.length === 2) {
+    canFlip = false;
+    checkMatch();
+  }
+}
+
+function checkMatch() {
+  const [card1, card2] = flippedCards;
+  
+  if (card1.dataset.value === card2.dataset.value) {
+    // Match!
+    card1.classList.add('matched');
+    card2.classList.add('matched');
+    matchedPairs++;
+    coins += 10 * level;
+    
+    flippedCards = [];
+    canFlip = true;
+    updateUI();
+    
+    if (matchedPairs === totalPairs) {
+      setTimeout(() => showWin(), 500);
+    }
+  } else {
+    // No match
+    lives--;
+    updateUI();
+    
+    setTimeout(() => {
+      card1.classList.remove('flipped');
+      card2.classList.remove('flipped');
+      flippedCards = [];
+      canFlip = true;
+      
+      if (lives <= 0) {
+        showLose();
+      }
+    }, 1000);
+  }
+}
+
+function updateUI() {
+  document.getElementById('level').textContent = level;
+  document.getElementById('coins').textContent = coins;
+  document.getElementById('lives').textContent = lives;
+  document.getElementById('pairs').textContent = `${matchedPairs}/${totalPairs}`;
+}
+
+function showWin() {
+  document.getElementById('modalTitle').textContent = 'Level Complete!';
+  document.getElementById('modalText').textContent = `You earned ${10 * level} coins!`;
+  document.getElementById('gameModal').classList.add('active');
+}
+
+function showLose() {
+  document.getElementById('modalTitle').textContent = 'Game Over';
+  document.getElementById('modalText').textContent = 'You ran out of lives. Try again!';
+  document.getElementById('gameModal').classList.add('active');
+  document.querySelector('#gameModal button').textContent = 'Retry';
+  document.querySelector('#gameModal button').onclick = () => {
+    closeModal();
+    startLevel();
+  };
+}
+
+function nextLevel() {
+  closeModal();
+  level++;
+  lives = maxLives;
+  startLevel();
+}
+
+function closeModal() {
+  document.getElementById('gameModal').classList.remove('active');
+  document.querySelector('#gameModal button').textContent = 'Next Level';
+  document.querySelector('#gameModal button').onclick = nextLevel;
+}
+
+function openShop() {
+  const grid = document.getElementById('shopGrid');
+  grid.innerHTML = '';
+  
+  backgrounds.forEach(bg => {
+    const owned = ownedBgs.includes(bg.id);
+    const item = document.createElement('div');
+    item.className = 'shop-item' + (owned ? ' owned' : '');
+    
+    item.innerHTML = `
+      <div class="shop-item-preview" style="background:${bg.url}"></div>
+      <div>${bg.name}</div>
+      <div style="color:#94a3b8; font-size:14px;">${owned ? 'Owned' : bg.price + ' coins'}</div>
+    `;
+    
+    if (!owned) {
+      item.onclick = () => buyBg(bg);
+    } else {
+      item.onclick = () => selectBg(bg);
+    }
+    
+    grid.appendChild(item);
+  });
+  
+  document.getElementById('shopModal').classList.add('active');
+}
+
+function buyBg(bg) {
+  if (coins >= bg.price) {
+    coins -= bg.price;
+    ownedBgs.push(bg.id);
+    currentBg = bg.id;
+    updateUI();
+    openShop();
+    startLevel();
+  }
+}
+
+function selectBg(bg) {
+  if (ownedBgs.includes(bg.id)) {
+    currentBg = bg.id;
+    closeShop();
+    startLevel();
+  }
+}
+
+function closeShop() {
+  document.getElementById('shopModal').classList.remove('active');
+}
+
+// Start game
+startLevel();
+</script>
+
+</body>
+</html>
